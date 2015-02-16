@@ -3,8 +3,8 @@
 #            Gordon's javascript-state-machine to python
 #            https://github.com/jakesgordon/javascript-state-machine
 #
-# Copyright (C) 2011 Mansour Behabadi <mansour@oxplot.com>, Jake Gordon
-#                    and other contributors
+# Copyright (C) 2011 Mansour <mansour@oxplot.com>, Jake Gordon and other
+#                    contributors
 #
 # Permission is hereby granted, free of charge, to any person obtaining
 # a copy of this software and associated documentation files (the
@@ -13,10 +13,10 @@
 # distribute, sublicense, and/or sell copies of the Software, and to
 # permit persons to whom the Software is furnished to do so, subject to
 # the following conditions:
-#
+# 
 # The above copyright notice and this permission notice shall be
 # included in all copies or substantial portions of the Software.
-#
+# 
 # THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
 # EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
 # MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
@@ -25,7 +25,6 @@
 # TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
-
 
 """
 USAGE
@@ -243,14 +242,52 @@ define your own startup event.
 So you have a number of choices available to you when initializing your
 state machine.
 
+
+-- Dynamic dst state and per event+state event callbacks
+
+Example:
+
+import random
+
+def is_lamp_ok(e):
+  # pick randomly, flip a coin and return one of the states
+  # this function must return string with name of the dst state
+  return e.dst[random.randint(0, len(e.dst)-1)]
+
+
+def lamp_callback(e):
+  print "This callback happens on switch event but only from on to off state."
+
+def onchangestate(e):
+  print "Changing from", e.src, "to", e.dst
+
+def onswitch(e):
+  print "Catch all switch events. State from ", e.src, "to", e.dst
+
+d= {
+  "initial": "off",
+  "events": [
+    {"name": "switch", "src": "off", "dst": ["on", "broken"], "decision": is_lamp_ok},
+    {"name": "switch", "src": "on", "dst": "off", "callback": lamp_callback},
+    {"name": "breakit", "src": ["on", "off"], "dst": "broken"},
+    {"name": "fixit", "src": "broken", "dst": "off"},
+    {"name": "switch", "src": "broken", "dst": "broken"},
+  ],
+  "callbacks":
+  {
+    "onchangestate": onchangestate,
+    "onswitch": onswitch,
+  }
+}
+
 """
 
-__author__ = 'Mansour Behabadi'
-__copyright__ = 'Copyright 2011, Mansour Behabadi and Jake Gordon'
-__credits__ = ['Mansour Behabadi', 'Jake Gordon']
+__author__ = 'Mansour'
+__copyright__ = 'Copyright 2011, Mansour and Jake Gordon'
+__credits__ = ['Mansour', 'Jake Gordon']
 __license__ = 'MIT'
 __version__ = '1.0'
-__maintainer__ = 'Mansour Behabadi'
+__maintainer__ = 'Mansour'
 __email__ = 'mansour@oxplot.com'
 
 import types
@@ -287,13 +324,19 @@ class Fysom(object):
     callbacks = cfg['callbacks'] if 'callbacks' in cfg else {}
     tmap = {}
     self._map = tmap
+    self._dmap = {}
+    self._cmap = {}
 
     def add(e):
       src = [e['src']] if isinstance(e['src'], basestring) else e['src']
       if e['name'] not in tmap:
         tmap[e['name']] = {}
+        self._dmap[e['name']] = {}
+        self._cmap[e['name']] = {}
       for s in src:
         tmap[e['name']][s] = e['dst']
+        self._dmap[e['name']][s] = e.get('decision')
+        self._cmap[e['name']][s] = e.get('callback')
 
     if init:
       if 'event' not in init:
@@ -326,30 +369,39 @@ class Fysom(object):
                          " %s" % (event, self.current))
 
       src = self.current
+      decision = self._dmap[event][src]
       dst = self._map[event][src]
+      callback = self._cmap[event][src]
 
       class _e_obj(object):
         pass
       e = _e_obj()
       e.fsm, e.event, e.src, e.dst = self, event, src, dst
+      
       for k in kwargs:
         setattr(e, k, kwargs[k])
 
-      if self.current != dst:
-        if self._before_event(e) == False:
-          return
+      if self._before_event(e) == False:
+        return
+      if callable(decision) and isinstance(dst, list):
+        e.dst = decision(e)
+
+      if self.current != e.dst:
         def _tran():
           delattr(self, 'transition')
-          self.current = dst
+          self.current = e.dst
           self._enter_state(e)
           self._change_state(e)
-          self._after_event(e)
         self.transition = _tran
 
       if self._leave_state(e) != False:
         if hasattr(self, 'transition'):
           self.transition()
-
+      if callable(callback):
+        callback(e)
+      else:
+        self._after_event(e)
+      
     return fn
 
   def _before_event(self, e):

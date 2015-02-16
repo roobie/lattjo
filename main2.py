@@ -6,6 +6,8 @@
 #
 
 import libtcodpy as libtcod
+from fysom import Fysom
+
 import constants
 import global_state
 import game_types
@@ -16,6 +18,18 @@ color_dark_wall = libtcod.Color(0, 0, 100)
 color_light_wall = libtcod.Color(130, 110, 50)
 color_dark_ground = libtcod.Color(50, 50, 150)
 color_light_ground = libtcod.Color(200, 180, 50)
+
+game_state = Fysom({
+    'initial': 'initialising',
+    'events': [
+        {'name': 'pause',
+         'src': 'playing',
+         'dst': 'paused'},
+        {'name': 'play',
+         'src': ['initialising', 'paused'],
+         'dst': 'playing'}
+    ]
+})
 
 def render_all():
     global con
@@ -55,7 +69,8 @@ def get_names_under_mouse():
     (x, y) = (mouse.cx, mouse.cy)
 
     #create a list with the names of all global_state.entities at the mouse's coordinates and in FOV
-    names = [obj.name for obj in global_state.entities]
+    names = [obj.name for obj in global_state.entities
+             if obj.x == x and obj.y == y]
 
     #join the names, separated by commas
     names = ', '.join(names)
@@ -63,10 +78,20 @@ def get_names_under_mouse():
 
 
 def handle_keys():
-    global key, mouse
+    global key, mouse, game_state
 
     if key.vk == libtcod.KEY_ESCAPE:
         return 'exit'  #exit game
+    else:
+        #test for other keys
+        key_char = chr(key.c)
+
+        if key_char == 'p':
+            #pick up an item
+            if game_state.isstate('paused'):
+                game_state.play()
+            else:
+                game_state.pause()
 
     return 'didnt-do-anything'
 
@@ -86,11 +111,11 @@ def initialise():
 
 
 def run_game():
-    global key, mouse, con
+    global key, mouse, con, game_state
 
     player_action = None
 
-    game_state = 'playing'
+    game_state.play()
 
     mouse = libtcod.Mouse()
     key = libtcod.Key()
@@ -114,7 +139,7 @@ def run_game():
             break
 
         #let monsters take their turn
-        if game_state == 'playing':
+        if game_state.isstate('playing'):
             for entity in global_state.entities:
                 if entity.ai:
                     entity.ai.update()

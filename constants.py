@@ -5,8 +5,8 @@ SCREEN_WIDTH = 80
 SCREEN_HEIGHT = 50
 
 #size of the map
-MAP_WIDTH = 80
-MAP_HEIGHT = 43
+MAP_WIDTH = 120
+MAP_HEIGHT = 60
 
 #sizes and coordinates relevant for the GUI
 BAR_WIDTH = 20
@@ -42,4 +42,4 @@ FOV_ALGO = 0  #default FOV algorithm
 FOV_LIGHT_WALLS = True  #light walls or not
 TORCH_RADIUS = 10
 
-LIMIT_FPS = 20  #20 frames-per-second maximum
+LIMIT_FPS = 10  #20 frames-per-second maximum

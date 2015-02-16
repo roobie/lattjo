@@ -73,7 +73,6 @@ class Entity:
         #only show if it's visible to the player; or it's set to "always visible" and on an explored tile
         #set the color and then draw the character that represents this entity at its position
         libtcod.console_set_default_foreground(con, self.color)
-        print(self.x, self.y, self.char, libtcod.BKGND_NONE)
         libtcod.console_put_char(con, self.x, self.y, self.char, libtcod.BKGND_NONE)
 
     def clear(self, con):
