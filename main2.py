@@ -8,11 +8,13 @@
 import libtcodpy as libtcod
 from fysom import Fysom
 
+import entities as entity_types
 import constants
-import global_state
 import game_types
 import ai_types
+import mapping
 
+global_state = game_types.World()
 
 color_dark_wall = libtcod.Color(0, 0, 100)
 color_light_wall = libtcod.Color(130, 110, 50)
@@ -33,15 +35,26 @@ game_state = Fysom({
 
 def render_all():
     global con
+    global color_dark_wall, color_light_wall
+    global color_dark_ground, color_light_ground
 
-    #draw all global_state.entities in the list, except the player. we want it to
-    #always appear over all other global_state.entities! so it's drawn later.
-    for entity in global_state.entities:
+    #draw all global_state.map.entities in the list, except the player. we want it to
+    #always appear over all other global_state.map.entities! so it's drawn later.
+    for entity in global_state.map.entities:
         entity.draw(con)
 
     #blit the contents of "con" to the root console
     libtcod.console_blit(con, 0, 0, constants.MAP_WIDTH, constants.MAP_HEIGHT, 0, 0, 0)
 
+    for y in range(constants.MAP_HEIGHT):
+        for x in range(constants.MAP_WIDTH):
+                wall = global_state.map.tiles[x][y].block_sight
+                #if it's not visible right now, the player can only see it if it's explored
+                if wall:
+                    libtcod.console_set_char_background(con, x, y, color_dark_wall, libtcod.BKGND_SET )
+                else:
+                    libtcod.console_set_char_background(con, x, y, color_dark_ground, libtcod.BKGND_SET )
+                    #since it's visible, explore it
 
     #prepare to render the GUI panel
     libtcod.console_set_default_background(panel, libtcod.black)
@@ -49,12 +62,12 @@ def render_all():
 
     #print the game messages, one line at a time
     y = 1
-    for (line, color) in global_state.game_msgs:
+    for (line, color) in global_state.messages:
         libtcod.console_set_default_foreground(panel, color)
-        libtcod.console_print_ex(panel, constants.MSG_X, y, libtcod.BKGND_NONE, libtcod.LEFT,line)
+        libtcod.console_print_ex(panel, constants.MSG_X, y, libtcod.BKGND_NONE, libtcod.LEFT, line)
         y += 1
 
-    #display names of global_state.entities under the mouse
+    #display names of global_state.map.entities under the mouse
     libtcod.console_set_default_foreground(panel, libtcod.light_gray)
     libtcod.console_print_ex(panel, 1, 0, libtcod.BKGND_NONE, libtcod.LEFT, get_names_under_mouse())
 
@@ -64,12 +77,12 @@ def render_all():
 
 def get_names_under_mouse():
     global mouse
-    #return a string with the names of all global_state.entities under the mouse
+    #return a string with the names of all global_state.map.entities under the mouse
 
     (x, y) = (mouse.cx, mouse.cy)
 
-    #create a list with the names of all global_state.entities at the mouse's coordinates and in FOV
-    names = [obj.name for obj in global_state.entities
+    #create a list with the names of all global_state.map.entities at the mouse's coordinates and in FOV
+    names = [obj.name for obj in global_state.map.entities
              if obj.x == x and obj.y == y]
 
     #join the names, separated by commas
@@ -80,34 +93,41 @@ def get_names_under_mouse():
 def handle_keys():
     global key, mouse, game_state
 
+    def toggle_pause():
+        if game_state.isstate('paused'):
+            game_state.play()
+        else:
+            game_state.pause()
+
     if key.vk == libtcod.KEY_ESCAPE:
-        return 'exit'  #exit game
+        #exit game
+        return 'exit'
+    elif key.vk == libtcod.KEY_SPACE:
+        toggle_pause()
     else:
         #test for other keys
         key_char = chr(key.c)
 
         if key_char == 'p':
-            #pick up an item
-            if game_state.isstate('paused'):
-                game_state.play()
-            else:
-                game_state.pause()
+            toggle_pause()
 
     return 'didnt-do-anything'
 
+def place_entities(entities, room):
+    for i in range(4):
+        x = libtcod.random_get_int(0, room.x1+1, room.x2-1)
+        y = libtcod.random_get_int(0, room.y1+1, room.y2-1)
+
+        entities.append(entity_types.get('human', global_state, x=x, y=y))
+
+
+def populate_map(map):
+    for i in range(len(map.rooms)):
+        place_entities(map.entities, map.rooms[i])
 
 def initialise():
-    global_state.game_msgs = []
-    global_state.entities = [
-        game_types.Entity(
-            20, 20, 'O', 'thing' + str(i), libtcod.white,
-            blocks=True,
-            fighter=game_types.Fighter(
-                hp=100, defense=1, power=2, xp=0, death_function=None),
-            ai=ai_types.BasicAI())
-        for i in range(10)]
-
-
+    global_state.map = mapping.make_map();
+    populate_map(global_state.map)
 
 
 def run_game():
@@ -128,8 +148,8 @@ def run_game():
 
         libtcod.console_flush()
 
-        #erase all global_state.entities at their old locations, before they move
-        for entity in global_state.entities:
+        #erase all global_state.map.entities at their old locations, before they move
+        for entity in global_state.map.entities:
             entity.clear(con)
 
         #handle keys and exit game if needed
@@ -140,7 +160,7 @@ def run_game():
 
         #let monsters take their turn
         if game_state.isstate('playing'):
-            for entity in global_state.entities:
+            for entity in global_state.map.entities:
                 if entity.ai:
                     entity.ai.update()
 

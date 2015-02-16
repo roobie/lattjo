@@ -1,88 +1,87 @@
 
+import libtcodpy as libtcod
 
-def is_blocked(x, y):
-    #first test the map tile
-    if map[x][y].blocked:
-        return True
+import global_state
+import constants
 
-    #now check for any blocking entitys
-    for entity in entitys:
-        if entity.blocks and entity.x == x and entity.y == y:
-            return True
+from map_types import Tile, Rect
 
-    return False
+stairs = None
 
-def create_room(room):
-    global map
+def create_room(room, the_map, fov_map):
     #go through the tiles in the rectangle and make them passable
     for x in range(room.x1 + 1, room.x2):
         for y in range(room.y1 + 1, room.y2):
-            map[x][y].blocked = False
-            map[x][y].block_sight = False
+            the_map[x][y].blocked = False
+            the_map[x][y].block_sight = False
+            libtcod.map_set_properties(fov_map, x, y, True, True)
 
-def create_h_tunnel(x1, x2, y):
-    global map
+def create_h_tunnel(x1, x2, y, the_map, fov_map):
     #horizontal tunnel. min() and max() are used in case x1>x2
     for x in range(min(x1, x2), max(x1, x2) + 1):
-        map[x][y].blocked = False
-        map[x][y].block_sight = False
+        the_map[x][y].blocked = False
+        the_map[x][y].block_sight = False
+        libtcod.map_set_properties(fov_map, x, y, True, True)
 
-def create_v_tunnel(y1, y2, x):
-    global map
+def create_v_tunnel(y1, y2, x, the_map, fov_map):
     #vertical tunnel
     for y in range(min(y1, y2), max(y1, y2) + 1):
-        map[x][y].blocked = False
-        map[x][y].block_sight = False
+        the_map[x][y].blocked = False
+        the_map[x][y].block_sight = False
+        libtcod.map_set_properties(fov_map, x, y, True, True)
 
-def make_map():
-    global map, entitys, stairs
 
-    #the list of entitys with just the player
-    entitys = [player]
+class Map:
+    def __init__(self, tiles = [], rooms = [], entities = [], fov_map = None):
+        self.tiles = tiles
+        self.rooms = rooms
+        self.entities = entities
+        self.fov_map = fov_map
+        if self.fov_map is None:
+            self.fov_map = libtcod.map_new(constants.MAP_HEIGHT, constants.MAP_WIDTH)
 
-    #fill map with "blocked" tiles
-    map = [[ Tile(True)
-             for y in range(constants.MAP_HEIGHT) ]
-           for x in range(constants.MAP_WIDTH) ]
+        self.path_map = libtcod.path_new_using_map(self.fov_map)
 
-    rooms = []
-    num_rooms = 0
+    def create(self):
+        self.tiles = [[ Tile(True)
+                        for y in range(constants.MAP_HEIGHT) ]
+                      for x in range(constants.MAP_WIDTH) ]
 
-    for r in range(constants.MAX_ROOMS):
-        #random width and height
-        w = libtcod.random_get_int(0, constants.ROOM_MIN_SIZE, constants.ROOM_MAX_SIZE)
-        h = libtcod.random_get_int(0, constants.ROOM_MIN_SIZE, constants.ROOM_MAX_SIZE)
-        #random position without going out of the boundaries of the map
-        x = libtcod.random_get_int(0, 0, constants.MAP_WIDTH - w - 1)
-        y = libtcod.random_get_int(0, 0, constants.MAP_HEIGHT - h - 1)
+        rooms = self.rooms
+        num_rooms = 0
 
-        #"Rect" class makes rectangles easier to work with
-        new_room = Rect(x, y, w, h)
+        for r in range(constants.MAX_ROOMS):
+            #random width and height
+            w = libtcod.random_get_int(0, constants.ROOM_MIN_SIZE, constants.ROOM_MAX_SIZE)
+            h = libtcod.random_get_int(0, constants.ROOM_MIN_SIZE, constants.ROOM_MAX_SIZE)
+            #random position without going out of the boundaries of the the_map
+            x = libtcod.random_get_int(0, 0, constants.MAP_WIDTH - w - 1)
+            y = libtcod.random_get_int(0, 0, constants.MAP_HEIGHT - h - 1)
 
-        #run through the other rooms and see if they intersect with this one
-        failed = False
-        for other_room in rooms:
-            if new_room.intersect(other_room):
-                failed = True
-                break
+            #"Rect" class makes rectangles easier to work with
+            new_room = Rect(x, y, w, h)
 
-        if not failed:
-            #this means there are no intersections, so this room is valid
+            #run through the other rooms and see if they intersect with this one
+            failed = False
+            for other_room in rooms:
+                if new_room.intersect(other_room):
+                    failed = True
+                    break
 
-            #"paint" it to the map's tiles
-            create_room(new_room)
+            if not failed:
+                #this means there are no intersections, so this room is valid
 
-            #add some contents to this room, such as monsters
-            place_entitys(new_room)
+                #"paint" it to the the_map's tiles
+                create_room(new_room, self.tiles, self.fov_map)
 
-            #center coordinates of new room, will be useful later
-            (new_x, new_y) = new_room.center()
+                if num_rooms == 0:
+                    rooms.append(new_room)
+                    num_rooms += 1
+                    continue
 
-            if num_rooms == 0:
-                #this is the first room, where the player starts at
-                player.x = new_x
-                player.y = new_y
-            else:
+                #center coordinates of new room, will be useful later
+                (new_x, new_y) = new_room.center()
+
                 #all rooms after the first:
                 #connect it to the previous room with a tunnel
 
@@ -92,18 +91,46 @@ def make_map():
                 #draw a coin (random number that is either 0 or 1)
                 if libtcod.random_get_int(0, 0, 1) == 1:
                     #first move horizontally, then vertically
-                    create_h_tunnel(prev_x, new_x, prev_y)
-                    create_v_tunnel(prev_y, new_y, new_x)
+                    create_h_tunnel(prev_x, new_x, prev_y, self.tiles, self.fov_map)
+                    create_v_tunnel(prev_y, new_y, new_x, self.tiles, self.fov_map)
                 else:
                     #first move vertically, then horizontally
-                    create_v_tunnel(prev_y, new_y, prev_x)
-                    create_h_tunnel(prev_x, new_x, new_y)
+                    create_v_tunnel(prev_y, new_y, prev_x, self.tiles, self.fov_map)
+                    create_h_tunnel(prev_x, new_x, new_y, self.tiles, self.fov_map)
 
-            #finally, append the new room to the list
-            rooms.append(new_room)
-            num_rooms += 1
+                    #finally, append the new room to the list
 
-    #create stairs at the center of the last room
-    stairs = Entity(new_x, new_y, '<', 'stairs', libtcod.white, always_visible=True)
-    entitys.append(stairs)
-    stairs.send_to_back(entitys)  #so it's drawn below the monsters
+                rooms.append(new_room)
+                num_rooms += 1
+
+
+    def get_random_position(self, blocked=False):
+        x = libtcod.random_get_int(0, 0, constants.MAP_WIDTH - 1)
+        y = libtcod.random_get_int(0, 0, constants.MAP_HEIGHT - 1)
+        if self.tiles[x][y].blocked != blocked:
+            return self.get_random_position(blocked)
+        return (x, y)
+
+    def is_blocked(self, x, y):
+        #first test the the_map tile
+        if self.tiles[x][y].blocked:
+            return True
+
+        #now check for any blocking entities
+        for entity in self.entities:
+            if entity.blocks and entity.x == x and entity.y == y:
+                return True
+
+        return False
+
+
+def make_map():
+    global stairs
+
+    #fill the_map with "blocked" tiles
+    the_map = Map()
+
+    the_map.create()
+
+
+    return the_map

@@ -1,48 +1,65 @@
-CONFUSE_NUM_TURNS = 10
+
+import random
 
 import libtcodpy as libtcod
 
+from fysom import Fysom
+
 class BasicAI:
+    def __init__(self, world):
+        self.map = world.map
+        self.pathing = self.map.path_map
+        self.path = []
+        self.fsm = Fysom({
+            'initial': 'spawning',
+            'events': [
+                { 'name': 'stop',
+                  'src': ['spawning', 'exploring'],
+                  'dst': 'idle' },
+                { 'name': 'explore',
+                  'src': ['idle'],
+                  'dst': 'exploring' },
+            ]
+        })
+
+    def get_path_to(self, nx, ny):
+        entity = self.owner
+        path = []
+        libtcod.path_compute(self.pathing, entity.x, entity.y, nx, ny)
+
+        for i in range(libtcod.path_size(self.pathing)):
+            (x, y) = libtcod.path_get(self.pathing, i)
+            path.append((x, y))
+
+        path.reverse()
+        return path
+
+    def get_path_to_random(self):
+        (nx, ny) = self.map.get_random_position()
+        self.path = self.get_path_to(nx, ny)
+
     def update(self):
         entity = self.owner
-        self.owner.move(
-                libtcod.random_get_int(0, -1, 1),
-                libtcod.random_get_int(0, -1, 1))
+        if self.fsm.isstate('spawning'):
+            self.fsm.stop()
+        elif self.fsm.isstate('idle'):
+            if random.random() < 0.3:
+                self.fsm.explore()
+        elif self.fsm.isstate('exploring'):
+            if len(self.path) < 1:
+                if random.random() < 0.01:
+                    return self.fsm.stop()
+                self.get_path_to_random()
 
-
-class BasicMonster:
-    #AI for a basic monster.
-    def take_turn(self):
-        #a basic monster takes its turn. if you can see it, it can see you
-        monster = self.owner
-        if libtcod.map_is_in_fov(fov_map, monster.x, monster.y):
-
-            #move towards player if far away
-            if monster.distance_to(player) >= 2:
-                monster.move_towards(player.x, player.y)
-
-            #close enough, attack! (if the player is still alive.)
-            elif player.fighter.hp > 0:
-                monster.fighter.attack(player)
-
-class ConfusedMonster:
-    #AI for a temporarily confused monster (reverts to previous AI after a while).
-    def __init__(self, old_ai, num_turns=CONFUSE_NUM_TURNS):
-        self.old_ai = old_ai
-        self.num_turns = num_turns
-
-    def take_turn(self):
-        if self.num_turns > 0:  #still confused...
-            #move in a random direction, and decrease the number of turns confused
-            self.owner.move(
-                libtcod.random_get_int(0, -1, 1),
-                libtcod.random_get_int(0, -1, 1))
-            self.num_turns -= 1
-
-        else:
-            #restore the previous AI
-            self.owner.ai = self.old_ai
-            message('The ' +
-                    self.owner.name +
-                    ' is no longer confused!',
-                    libtcod.red)
+            if len(self.path) > 0:
+                (x, y) = self.path.pop()
+                if entity.can_move_abs(x, y, self.map):
+                    entity.owner.move_abs(x, y, self.map)
+                else:
+                    self.get_path_to_random()
+                    self.update()
+                    print('no')
+            else:
+                self.get_path_to_random()
+                self.fail_count += 1
+                print(entity.name, self.fail_count)

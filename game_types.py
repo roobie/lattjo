@@ -3,12 +3,17 @@ import libtcodpy as libtcod
 from the_inventory import inventory, inventory_menu, get_equipped_in_slot, get_all_equipped
 from messages import message
 
+class World:
+    def __init__(self):
+        self.map = None
+        self.messages = []
+
 class Entity:
     #this is a generic entity: the player, a monster, an item, the stairs...
     #it's always represented by a character on screen.
     def __init__(self, x, y, char, name, color,
                  blocks=False, always_visible=False,
-                 fighter=None, ai=None, item=None, equipment=None):
+                 fighter=None, ai=None, item=None, equipment=None, gender=None):
         self.x = x
         self.y = y
         self.char = char
@@ -17,6 +22,7 @@ class Entity:
         self.blocks = blocks
         self.always_visible = always_visible
         self.fighter = fighter
+        self.gender = gender
         if self.fighter:  #let the fighter component know who owns it
             self.fighter.owner = self
 
@@ -36,11 +42,23 @@ class Entity:
             self.item = Item()
             self.item.owner = self
 
-    def move(self, dx, dy):
+    def can_move(self, dx, dy, map):
+        return not map.is_blocked(self.x + dx, self.y + dy)
+
+    def can_move_abs(self, x, y, map):
+        return not map.is_blocked(x, y)
+
+    def move(self, dx, dy, map):
         #move by the given amount, if the destination is not blocked
-        #if not is_blocked(self.x + dx, self.y + dy):
-        self.x += dx
-        self.y += dy
+        if not map.is_blocked(self.x + dx, self.y + dy):
+            self.x += dx
+            self.y += dy
+
+    def move_abs(self, x, y, map):
+        #move by the given amount, if the destination is not blocked
+        if not map.is_blocked(x, y):
+            self.x = x
+            self.y = y
 
     def move_towards(self, target_x, target_y):
         #vector from this entity to the target, and distance
