@@ -114,7 +114,7 @@ def handle_keys():
     return 'didnt-do-anything'
 
 def place_entities(entities, room):
-    for i in range(4):
+    for i in range(2):
         x = libtcod.random_get_int(0, room.x1+1, room.x2-1)
         y = libtcod.random_get_int(0, room.y1+1, room.y2-1)
 

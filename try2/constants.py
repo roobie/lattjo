@@ -24,22 +24,7 @@ ROOM_MAX_SIZE = 10
 ROOM_MIN_SIZE = 6
 MAX_ROOMS = 30
 
-#spell values
-HEAL_AMOUNT = 40
-LIGHTNING_DAMAGE = 40
-LIGHTNING_RANGE = 5
-CONFUSE_RANGE = 8
-CONFUSE_NUM_TURNS = 10
-FIREBALL_RADIUS = 3
-FIREBALL_DAMAGE = 25
-
-#experience and level-ups
-LEVEL_UP_BASE = 200
-LEVEL_UP_FACTOR = 150
-
-
 FOV_ALGO = 0  #default FOV algorithm
 FOV_LIGHT_WALLS = True  #light walls or not
-TORCH_RADIUS = 10
 
-LIMIT_FPS = 10  #20 frames-per-second maximum
+LIMIT_FPS = 10

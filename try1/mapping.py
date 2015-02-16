@@ -38,7 +38,7 @@ class Map:
         self.entities = entities
         self.fov_map = fov_map
         if self.fov_map is None:
-            self.fov_map = libtcod.map_new(constants.MAP_HEIGHT, constants.MAP_WIDTH)
+            self.fov_map = libtcod.map_new(constants.MAP_WIDTH, constants.MAP_HEIGHT)
 
         self.path_map = libtcod.path_new_using_map(self.fov_map)
 

@@ -54,12 +54,8 @@ class BasicAI:
             if len(self.path) > 0:
                 (x, y) = self.path.pop()
                 if entity.can_move_abs(x, y, self.map):
-                    entity.owner.move_abs(x, y, self.map)
+                    entity.move_abs(x, y, self.map)
                 else:
-                    self.get_path_to_random()
-                    self.update()
-                    print('no')
+                    return self.get_path_to_random()
             else:
                 self.get_path_to_random()
-                self.fail_count += 1
-                print(entity.name, self.fail_count)
