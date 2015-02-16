@@ -1,4 +1,15 @@
 CONFUSE_NUM_TURNS = 10
+
+import libtcodpy as libtcod
+
+class BasicAI:
+    def update(self):
+        entity = self.owner
+        self.owner.move(
+                libtcod.random_get_int(0, -1, 1),
+                libtcod.random_get_int(0, -1, 1))
+
+
 class BasicMonster:
     #AI for a basic monster.
     def take_turn(self):

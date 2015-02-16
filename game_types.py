@@ -38,9 +38,9 @@ class Entity:
 
     def move(self, dx, dy):
         #move by the given amount, if the destination is not blocked
-        if not is_blocked(self.x + dx, self.y + dy):
-            self.x += dx
-            self.y += dy
+        #if not is_blocked(self.x + dx, self.y + dy):
+        self.x += dx
+        self.y += dy
 
     def move_towards(self, target_x, target_y):
         #vector from this entity to the target, and distance
@@ -69,14 +69,14 @@ class Entity:
         entitys.remove(self)
         entitys.insert(0, self)
 
-    def draw(self):
+    def draw(self, con):
         #only show if it's visible to the player; or it's set to "always visible" and on an explored tile
-        if libtcod.map_is_in_fov(fov_map, self.x, self.y) or (self.always_visible and map[self.x][self.y].explored):
-            #set the color and then draw the character that represents this entity at its position
-            libtcod.console_set_default_foreground(con, self.color)
-            libtcod.console_put_char(con, self.x, self.y, self.char, libtcod.BKGND_NONE)
+        #set the color and then draw the character that represents this entity at its position
+        libtcod.console_set_default_foreground(con, self.color)
+        print(self.x, self.y, self.char, libtcod.BKGND_NONE)
+        libtcod.console_put_char(con, self.x, self.y, self.char, libtcod.BKGND_NONE)
 
-    def clear(self):
+    def clear(self, con):
         #erase the character that represents this entity
         libtcod.console_put_char(con, self.x, self.y, ' ', libtcod.BKGND_NONE)
 
